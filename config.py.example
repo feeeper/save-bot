@@ -1,0 +1,17 @@
+class Config:
+    def __init__(self) -> None:
+        self._token = ''  # Bot token from @BotFather
+        self._client_token = ''  # Client Token for Box API (get yours at https://app.box.com/developers/console/)
+        self._client_id = ''  # Client Id for Box API (get yours at https://app.box.com/developers/console/)
+    
+    @property
+    def token(self):
+        return self._token
+
+    @property
+    def client_token(self):
+        return self._client_token
+
+    @property
+    def client_id(self):
+        return self._client_id
