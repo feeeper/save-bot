@@ -15,8 +15,6 @@ class S(BaseHTTPRequestHandler):
 
     def do_GET(self):
         logging.info("GET request,\nPath: %s\nHeaders:\n%s\n", str(self.path), str(self.headers))
-        # self._set_response()
-        # self.wfile.write("GET request for {}".format(self.path).encode('utf-8'))
         self.send_response(301)
         self.send_header('Location',f'https://t.me/ComedyCoachAdminBot?start={self.path.split("=")[-1]}')
         self.end_headers()

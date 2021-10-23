@@ -22,23 +22,25 @@ def start(update: Update, context: CallbackContext):
     message_text: str = update.message.text
     message_parts: list[str] = message_text.split(' ')
     if len(message_parts) == 2:
+        code: str = message_parts[1]
         access_token_url = 'https://api.box.com/oauth2/token'
         headers = {'Content-Type': 'application/x-www-form-urlencoded'}
         params = {
             'client_id': client_id,
             'client_secret': client_secret,
-            'code': message_parts[1],
+            'code': code,
             'grant_type': 'authorization_code'
         }
         req = requests.post(access_token_url, data=params, headers=headers)
 
         data = json.loads(req.text)
 
-        oauth = boxsdk.OAuth2(client_id,
-                              client_secret,
-                              access_token=data['access_token'],
-                              refresh_token=data['refresh_token'])
-        box_client = boxsdk.Client(oauth)
+        oauth: boxsdk.OAuth2 = boxsdk.OAuth2(
+            client_id,
+            client_secret,
+            access_token=data['access_token'],
+            refresh_token=data['refresh_token'])
+        box_client = boxsdk.Client(oauth)        
         user = box_client.user().get()
         context.bot.send_message(chat_id=update.effective_chat.id, text=user.login)
     else:
