@@ -12,9 +12,9 @@ config: Config = Config()
 
 client_secret: str = config.client_token
 client_id: str = config.client_id
-redirect_url: str = 'http://localhost:8000'
-
+redirect_url: str = config.redirect_url
 token = config.token
+
 updater = Updater(token=token, use_context=True)
 dispatcher = updater.dispatcher
 

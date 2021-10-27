@@ -131,3 +131,4 @@ dmypy.json
 ﻿venv
 __pycache__
 config.py
+.idea
