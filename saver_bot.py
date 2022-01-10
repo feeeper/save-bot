@@ -1,6 +1,10 @@
 import json
 
 import boxsdk
+from boxsdk.object.user import User as BoxUser
+from boxsdk.object.folder import Folder as BoxFolder
+from boxsdk.object.file import File as BoxFile
+
 import requests
 from telegram import Bot as TelegramBot, Update, ChatAction
 from telegram.ext import Updater, CommandHandler, CallbackContext
@@ -43,8 +47,13 @@ class SaverBot(TelegramBot):
                 access_token=data['access_token'],
                 refresh_token=data['refresh_token'])
             box_client = boxsdk.Client(oauth)
-            user = box_client.user().get()
-            context.bot.send_message(chat_id=update.effective_chat.id, text=user.login)
+            user: BoxUser = box_client.user().get()
+            save_bot_directory: BoxFolder = box_client.root_folder().create_subfolder('Save Bot Directory')
+            success_registered_msg_text: str = f'You\'ve been successfully registered with login {user.login}. ' \
+                                               f'I\'ve created a directory for savings called <a href="https://app.box.com/folder/{save_bot_directory.object_id}">"Save Bot Directory"</a>'
+            context.bot.send_message(chat_id=update.effective_chat.id,
+                                     text=success_registered_msg_text,
+                                     parse_mode='HTML')
         else:
             self.show_welcome_message(update, context)
 
