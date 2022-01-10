@@ -1,6 +1,10 @@
 import json
 
 import boxsdk
+from boxsdk.object.user import User as BoxUser
+from boxsdk.object.folder import Folder as BoxFolder
+from boxsdk.object.file import File as BoxFile
+
 import requests
 from telegram import Bot as TelegramBot, Update, ChatAction
 from telegram.ext import Updater, CommandHandler, CallbackContext
