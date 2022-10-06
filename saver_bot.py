@@ -12,14 +12,21 @@ from telegram.utils.request import Request
 
 from config import Config
 
+
 def get_save_bot_directory_name() -> str:
     return 'Save Bot Directory'
+
 
 def get_success_registered_msg_text(login: str, box_folder_id: str) -> str:
     return  f'You\'ve been successfully registered with login {login}. I\'ve created a directory for savings called <a href="https://app.box.com/folder/{box_folder_id}">"Save Bot Directory"</a>'
 
+
 def get_already_registered_msg_text(login: str, box_folder_id: str) -> str:
     return f'You\'ve been already registered with login {login}. The directory for savings called <a href="https://app.box.com/folder/{box_folder_id}">"Save Bot Directory"</a>'
+
+
+def get_something_went_wrong_from_box_api_msg_text(box_exception: boxsdk.exception.BoxAPIException) -> str:
+    return f'Something went wrong: {box_exception.message} (Code={box_exception.code})'
 
 
 class SaverBot(TelegramBot):
@@ -75,11 +82,11 @@ class SaverBot(TelegramBot):
                                                 parse_mode='HTML')
                     else:
                         context.bot.send_message(chat_id=update.effective_chat.id,
-                                            text=f'Something went wrong: {box_exception.message} (Code={box_exception.code})',
+                                            text=get_something_went_wrong_from_box_api_msg_text(box_exception),
                                             parse_mode='HTML')
                 else:
                     context.bot.send_message(chat_id=update.effective_chat.id,
-                                            text=f'Something went wrong: {box_exception.message} (Code={box_exception.code})',
+                                            text=get_something_went_wrong_from_box_api_msg_text(box_exception),
                                             parse_mode='HTML')
         else:
             self.show_welcome_message(update, context)
