@@ -13,6 +13,22 @@ from telegram.utils.request import Request
 from config import Config
 
 
+def get_save_bot_directory_name() -> str:
+    return 'Save Bot Directory'
+
+
+def get_success_registered_msg_text(login: str, box_folder_id: str) -> str:
+    return  f'You\'ve been successfully registered with login {login}. I\'ve created a directory for savings called <a href="https://app.box.com/folder/{box_folder_id}">"Save Bot Directory"</a>'
+
+
+def get_already_registered_msg_text(login: str, box_folder_id: str) -> str:
+    return f'You\'ve been already registered with login {login}. The directory for savings called <a href="https://app.box.com/folder/{box_folder_id}">"Save Bot Directory"</a>'
+
+
+def get_something_went_wrong_from_box_api_msg_text(box_exception: boxsdk.exception.BoxAPIException) -> str:
+    return f'Something went wrong: {box_exception.message} (Code={box_exception.code})'
+
+
 class SaverBot(TelegramBot):
     def __init__(self):
         self.config = Config()
@@ -48,12 +64,30 @@ class SaverBot(TelegramBot):
                 refresh_token=data['refresh_token'])
             box_client = boxsdk.Client(oauth)
             user: BoxUser = box_client.user().get()
-            save_bot_directory: BoxFolder = box_client.root_folder().create_subfolder('Save Bot Directory')
-            success_registered_msg_text: str = f'You\'ve been successfully registered with login {user.login}. ' \
-                                               f'I\'ve created a directory for savings called <a href="https://app.box.com/folder/{save_bot_directory.object_id}">"Save Bot Directory"</a>'
-            context.bot.send_message(chat_id=update.effective_chat.id,
-                                     text=success_registered_msg_text,
-                                     parse_mode='HTML')
+
+            try:
+                save_bot_directory: BoxFolder = box_client.root_folder().create_subfolder(get_save_bot_directory_name())
+                
+                context.bot.send_message(chat_id=update.effective_chat.id,
+                                        text=get_success_registered_msg_text(user.login, save_bot_directory.object_id),
+                                        parse_mode='HTML')
+            except boxsdk.exception.BoxAPIException as box_exception:
+                if box_exception.status == 409 and box_exception.code == 'item_name_in_use':
+                    context_info = box_exception.context_info
+                    conflicts = [x for x in context_info['conflicts'] if x['name'] == get_save_bot_directory_name()]
+                    if len(conflicts) == 1:
+                        save_bot_directory_object_id = conflicts[0]['id']                        
+                        context.bot.send_message(chat_id=update.effective_chat.id,
+                                                text=get_already_registered_msg_text(user.login, save_bot_directory_object_id),
+                                                parse_mode='HTML')
+                    else:
+                        context.bot.send_message(chat_id=update.effective_chat.id,
+                                            text=get_something_went_wrong_from_box_api_msg_text(box_exception),
+                                            parse_mode='HTML')
+                else:
+                    context.bot.send_message(chat_id=update.effective_chat.id,
+                                            text=get_something_went_wrong_from_box_api_msg_text(box_exception),
+                                            parse_mode='HTML')
         else:
             self.show_welcome_message(update, context)
 
