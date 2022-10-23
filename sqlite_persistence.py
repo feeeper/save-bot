@@ -1,9 +1,8 @@
-import copy
 from datetime import datetime
 import zoneinfo
 from typing import Any, DefaultDict, Dict, Optional
-from telegram.ext import BasePersistence, PersistenceInput, PicklePersistence
-from telegram.ext._utils.types import UD
+from telegram.ext import BasePersistence, PersistenceInput
+from telegram.ext._utils.types import UD, CD
 import sqlite3
 
 
@@ -22,11 +21,58 @@ def init_db(name: str = 'save_bot.db') -> None:
 
 
 class SqlitePersistence(BasePersistence):
-    def __init__(self, name: str='save_bot.db'):
-        self.store_data = PersistenceInput(bot_data=False)
+    def __init__(self, name: str='save_bot.db'): 
+        super().__init__(
+            store_data=PersistenceInput(bot_data=False, user_data=False, callback_data=False),
+            update_interval=1)
         self.conn = sqlite3.connect(name)
         self.cursor = self.conn.cursor()
 
+    async def get_chat_data(self) -> DefaultDict[int, Any]:
+        data = self.cursor.execute('''SELECT * FROM chat_data''').fetchall()
+        chat_data = {x[1]: dict(zip(['id', 'chat_id', 'active', 'registration_ts', 'access_token', 'refresh_token', 'box_folder_id'], x)) for x in data}
+        return chat_data
+
+    async def update_chat_data(self, chat_id: int, data: CD) -> None:
+        if isinstance(data, dict) and len(data) > 0:
+            access_token = data['access_token']
+            refresh_token = data['refresh_token']
+            box_folder_id = data.get('box_folder_id', None)            
+
+            is_chat_data_exists = self._chat_data_exists(chat_id)
+            if is_chat_data_exists:
+                self.cursor.execute('''UPDATE chat_data
+                                       SET
+                                           access_token = ?,
+                                           refresh_token = ?,
+                                           box_folder_id = ?
+                                       WHERE
+                                           chat_id = ?''', (access_token, refresh_token, box_folder_id, chat_id))
+            else:
+                ts = int(datetime.now(tz=zoneinfo.ZoneInfo('UTC')).timestamp())
+                self.cursor.execute('''INSERT INTO chat_data
+                                           (chat_id, active, registration_ts, access_token, refresh_token, box_folder_id)
+                                       VALUES 
+                                           (?, 1, ?, ?, ?, ?)''',
+                    (chat_id, ts, access_token, refresh_token, box_folder_id))
+                
+            self.conn.commit()
+
+    def _chat_data_exists(self, chat_id):
+        row = self.cursor.execute('''SELECT EXISTS(SELECT * FROM chat_data WHERE chat_id = ?)''', (chat_id,)).fetchone()
+        return row[0] > 0
+
+    async def refresh_chat_data(self, chat_id: int, chat_data: Any) -> None:
+        if isinstance(chat_data, dict):
+            data = self.cursor.execute('''SELECT * FROM chat_data WHERE chat_id = ?''', (chat_id, )).fetchone()
+            if data is not None:
+                record = dict(zip(['id', 'chat_id', 'active', 'registration_ts', 'access_token', 'refresh_token', 'box_folder_id'], data))
+                chat_data.update(record)
+
+    async def drop_chat_data(self, chat_id: int) -> None:
+        self.cursor.execute('''DELETE FROM chat_data WHERE chat_id = ?''', (chat_id, ))
+        self.conn.commit()
+    
     async def get_bot_data(self) -> Any:
         pass
 
@@ -36,73 +82,32 @@ class SqlitePersistence(BasePersistence):
     def refresh_bot_data(self, bot_data) -> None:
         pass
 
-    async def get_chat_data(self) -> DefaultDict[int, Any]:
-        data = self.cursor.execute('''SELECT * FROM chat_data''').fetchall()
-        chat_data = {x[1]: dict(zip(['id', 'chat_id', 'active', 'registration_ts', 'access_token', 'refresh_token', 'box_folder_id'], x)) for x in data}
-        return chat_data
-
-    async def update_chat_data(self, chat_id: int, data: Any) -> None:
-        should_update = False
-
-        if isinstance(data, dict) and len(data) > 0:
-            access_token = data['access_token']
-            refresh_token = data['refresh_token']
-            box_folder_id = data['box_folder_id']            
-            should_update = True
-
-        if should_update:
-            row = self.cursor.execute('''SELECT EXISTS(SELECT * FROM chat_data WHERE chat_id = ?)''', (chat_id,)).fetchone()
-            if row[0] == 0:                
-                ts = int(datetime.now(tz=zoneinfo.ZoneInfo('UTC')).timestamp())
-                self.cursor.execute('''INSERT INTO chat_data
-                                           (chat_id, active, registration_ts, access_token, refresh_token, box_folder_id)
-                                       VALUES 
-                                           (?, 1, ?, ?, ?, ?)''',
-                    (chat_id, ts, access_token, refresh_token, box_folder_id))
-            else:
-                self.cursor.execute('''UPDATE chat_data
-                                       SET
-                                           access_token = ?,
-                                           refresh_token = ?,
-                                           box_folder_id = ?
-                                       WHERE
-                                           chat_id = ?''', (access_token, refresh_token, box_folder_id, chat_id))
-            self.conn.commit()
-                
-        return super().update_chat_data(chat_id, data)
-
-    async def refresh_chat_data(self, chat_id: int, chat_data: Any) -> None:
-        await self.update_chat_data(chat_id, chat_data)
-
     def get_user_data(self) -> DefaultDict[int, Any]:
-        return copy.deepcopy(self.user_data)
+        pass
 
     def update_user_data(self, user_id: int, data: Any) -> None:
-        return super().update_user_data(user_id, data)
+        pass
 
     def refresh_user_data(self, user_id: int, user_data: Any) -> None:
-        return super().refresh_user_data(user_id, user_data)
+        pass
 
     def get_callback_data(self) -> Optional[Any]:
-        return super().get_callback_data()
+        pass
 
     def update_callback_data(self, data: Any) -> None:
-        return super().update_callback_data(data)
+        pass
 
     def get_conversations(self, name: str) -> Any:
-        return super().get_conversations(name)
+        pass
 
     def update_conversation(self, name: str, key, new_state: Optional[object]) -> None:
-        return super().update_conversation(name, key, new_state)
+        pass
 
     def flush(self) -> None:
-        return super().flush()
-
-    async def drop_chat_data(self, chat_id: int) -> None:
-        return await super().drop_chat_data(chat_id)
+        self.conn.close()  
 
     async def drop_user_data(self, user_id: int) -> None:
-        return await super().drop_user_data(user_id)
+        pass
 
     async def get_user_data(self) -> Dict[int, UD]:
-        return {}
+        pass
