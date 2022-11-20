@@ -47,8 +47,7 @@ class SqlitePersistence(BasePersistence):
         if isinstance(data, dict) and len(data) > 0:
             access_token = data['access_token']
             refresh_token = data['refresh_token']
-            box_folder_id = data['box_folder_id']            
-            should_update = True
+            box_folder_id = data.get('box_folder_id', None)
 
         if should_update:
             row = self.cursor.execute('''SELECT EXISTS(SELECT * FROM chat_data WHERE chat_id = ?)''', (chat_id,)).fetchone()
