@@ -133,3 +133,4 @@ __pycache__
 config.py
 .idea
 *.db
+.vscode
