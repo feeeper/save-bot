@@ -5,6 +5,7 @@ import boxsdk
 from boxsdk.object.user import User as BoxUser
 from boxsdk.object.folder import Folder as BoxFolder
 
+
 import requests
 from telegram import Bot as TelegramBot, Update
 from telegram.ext import CommandHandler, CallbackContext, Application, BasePersistence, MessageHandler, filters
@@ -35,10 +36,13 @@ class SaverBot(TelegramBot):
         self.client_id = config.client_id
         self.client_token = config.client_token
         self.redirect_url = config.redirect_url
-        self.application = Application.builder().token(config.token).persistence(persistence).build()
+        self.bot_token = config.token
+
+        self.application = Application.builder().token(self.bot_token).persistence(persistence).build()
         self.application.add_handler(CommandHandler('start', self.start))
         self.application.add_handler(CommandHandler('register', self.register))
         self.application.add_handler(MessageHandler(filters=filters.ALL, callback=self.upload_file))
+
 
     async def start(self, update: Update, context: CallbackContext):
         message_text: str = update.message.text
@@ -61,13 +65,9 @@ class SaverBot(TelegramBot):
             context.chat_data['access_token'] = access_token
             context.chat_data['refresh_token'] = refresh_token
 
-            oauth: boxsdk.OAuth2 = boxsdk.OAuth2(
-                self.client_id,
-                self.client_token,
-                access_token=data['access_token'],
-                refresh_token=data['refresh_token'])
+            oauth: boxsdk.OAuth2 = boxsdk.OAuth2(self.client_id, self.client_token, access_token=access_token, refresh_token=refresh_token)
             box_client = boxsdk.Client(oauth)
-            user: BoxUser = box_client.user().get()
+            user: BoxUser = box_client.user().get()            
 
             try:
                 save_bot_directory: BoxFolder = box_client.root_folder().create_subfolder(get_save_bot_directory_name())
