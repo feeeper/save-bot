@@ -11,7 +11,6 @@ from telegram import Bot as TelegramBot, Update
 from telegram.ext import CommandHandler, CallbackContext, Application, BasePersistence, MessageHandler, filters
 from telegram.error import BadRequest as tgBadRequest
 
-
 from config import Config
 
 
@@ -63,8 +62,8 @@ class SaverBot(TelegramBot):
             data = json.loads(req.text)
             access_token = data['access_token']
             refresh_token = data['refresh_token']
-            self.application.chat_data[update.message.chat_id]['access_token'] = access_token
-            self.application.chat_data[update.message.chat_id]['refresh_token'] = refresh_token
+            context.chat_data['access_token'] = access_token
+            context.chat_data['refresh_token'] = refresh_token
 
             oauth: boxsdk.OAuth2 = boxsdk.OAuth2(self.client_id, self.client_token, access_token=access_token, refresh_token=refresh_token)
             box_client = boxsdk.Client(oauth)
@@ -72,16 +71,16 @@ class SaverBot(TelegramBot):
 
             try:
                 save_bot_directory: BoxFolder = box_client.root_folder().create_subfolder(get_save_bot_directory_name())
-                self.application.chat_data[update.message.chat_id]['box_folder_id'] = save_bot_directory.object_id
+                context.chat_data['box_folder_id'] = save_bot_directory.object_id
                 await update.message.reply_html(get_success_registered_msg_text(user.login, save_bot_directory.object_id))
-                
+
             except boxsdk.exception.BoxAPIException as box_exception:
                 if box_exception.status == 409 and box_exception.code == 'item_name_in_use':
                     context_info = box_exception.context_info
                     conflicts = [x for x in context_info['conflicts'] if x['name'] == get_save_bot_directory_name()]
                     if len(conflicts) == 1:
                         save_bot_directory_object_id = conflicts[0]['id']                        
-                        self.application.chat_data[update.message.chat_id]['box_folder_id'] = save_bot_directory_object_id
+                        context.chat_data['box_folder_id'] = save_bot_directory_object_id
                         await update.message.reply_html(get_already_registered_msg_text(user.login, save_bot_directory_object_id))
                     else:
                         await update.message.reply_html(get_something_went_wrong_from_box_api_msg_text(box_exception))
@@ -105,11 +104,12 @@ class SaverBot(TelegramBot):
         if update.message.document is None:
             await self._send_no_document_passed_message(update)
             return
-            
-        if update.message.chat_id in self.application.chat_data and 'access_token' in self.application.chat_data[update.message.chat_id]:
-            access_token = self.application.chat_data[update.message.chat_id]['access_token']
-            refresh_token = self.application.chat_data[update.message.chat_id]['access_token']
-            folder_id = self.application.chat_data[update.message.chat_id]['box_folder_id']
+        
+        if 'access_token' in context.chat_data:
+            access_token = context.chat_data['access_token']
+            refresh_token = context.chat_data['refresh_token']
+            folder_id = context.chat_data['box_folder_id']
+
             oauth: boxsdk.OAuth2 = boxsdk.OAuth2(self.client_id, self.client_token, access_token=access_token, refresh_token=refresh_token)
             box_client = boxsdk.Client(oauth)
 
@@ -132,7 +132,8 @@ class SaverBot(TelegramBot):
                     existing_file_link = f'[{context_info["conflicts"]["name"]}](https://app.box.com/file/{context_info["conflicts"]["id"]})'
                     await update.message.reply_markdown(f'File with the same name already exists: {existing_file_link}')
             except Exception as ex:
-                await update.message.reply_text(f'Internal Error: {ex.message}')
+                await update.message.reply_text(f'Internal Error: {ex}')
+
 
     def run(self):
         self.application.run_polling()
