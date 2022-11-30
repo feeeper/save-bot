@@ -9,6 +9,14 @@ from boxsdk.object.file import File as BoxFile
 import requests
 from telegram import Bot as TelegramBot, Update 
 from telegram.ext import CommandHandler, CallbackContext, Application, BasePersistence, MessageHandler, filters
+from telegram.ext import (
+    CommandHandler,
+    CallbackContext,
+    Application,
+    BasePersistence,
+    MessageHandler,
+    filters
+)
 from telegram.error import BadRequest as tgBadRequest
 
 from config import Config
@@ -65,7 +73,7 @@ class SaverBot(TelegramBot):
                 context_info = box_exception.context_info
                 conflicts = [x for x in context_info['conflicts'] if x['name'] == get_save_bot_directory_name()]
                 if len(conflicts) == 1:
-                    save_bot_directory_object_id = conflicts[0]['id']                        
+                    save_bot_directory_object_id = conflicts[0]['id']
                     context.chat_data['box_folder_id'] = save_bot_directory_object_id
                     await update.message.reply_html(get_already_registered_msg_text(user.login, save_bot_directory_object_id))
                 else:
@@ -94,10 +102,6 @@ class SaverBot(TelegramBot):
 
     async def send_register_link(self, update: Update, context: CallbackContext):
         await update.message.reply_html(f'<a href="https://account.box.com/api/oauth2/authorize?client_id={self.client_id}&redirect_uri={self.redirect_url}&response_type=code">Connect to Box.com</a>')
-
-    @staticmethod
-    async def show_welcome_message(update: Update, context: CallbackContext):
-        await update.message.reply_text('Save to Cloud bot')
 
     @staticmethod
     async def _send_no_document_passed_message(update: Update):
