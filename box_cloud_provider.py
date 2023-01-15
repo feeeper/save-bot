@@ -93,3 +93,38 @@ class BoxProvider(BaseCloudProvider):
                 raise ItemNameInUseException(user.login, file_id, file_name)
         except Exception as ex:
             raise InternalException(ex)
+
+    def search(self, access_token: str, refresh_token: str, folder_id: str, query: str) -> t.List[BoxFile]:
+        oauth: boxsdk.OAuth2 = boxsdk.OAuth2(self.client_id,self.client_token, access_token=access_token, refresh_token=refresh_token)
+        box_client = boxsdk.Client(oauth)
+        items: t.List[BoxFile] = box_client.search().query(
+            query=query,
+            limit=100,
+            type='file',
+            content_types=['name', 'description', 'comments', 'tags'])
+        for item in items:
+            if self._is_in_directory(box_client, item, folder_id):
+                yield item
+
+        return
+
+    def _is_in_directory(self, box_client: boxsdk.Client, item: BoxFile, folder_id: str) -> bool:
+        if item.parent.id == folder_id:
+            return True
+
+        if item.parent.type != 'folder':
+            return False
+
+        root_folder_id = box_client.root_folder().object_id
+        parent = box_client.folder(folder_id=item.parent.id).get()
+        while parent is not None and parent.parent.type == 'folder':
+            if parent.parent.id == folder_id:
+                return True
+            
+            if parent.parent.id == root_folder_id:
+                return False
+
+            parent = box_client.folder(folder_id=parent.parent.id).get()
+
+        return False
+        

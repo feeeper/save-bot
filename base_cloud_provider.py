@@ -24,3 +24,6 @@ class BaseCloudProvider:
 
     def upload_file(self, access_token: str, refresh_token: str, file) -> t.Any:
         ...
+
+    def search(self, access_token: str, refresh_token: str, folder_id: str, query: str) -> t.Any:
+        ...
