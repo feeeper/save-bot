@@ -1,6 +1,6 @@
 import io
 
-from telegram import Bot as TelegramBot, Update 
+from telegram import Bot as TelegramBot, Update, constants
 from telegram.ext import CommandHandler, CallbackContext, Application, BasePersistence, MessageHandler, filters
 from telegram.ext import (
     CommandHandler,
@@ -31,7 +31,7 @@ class SaverBot(TelegramBot):
 
         self.application = Application.builder().token(self.bot_token).persistence(persistence).build()
         self.application.add_handler(CommandHandler('start', self.start))
-        self.application.add_handler(MessageHandler(filters=filters.ALL, callback=self.upload_file))
+        self.application.add_handler(MessageHandler(filters=filters.ALL, callback=self.upload_file_or_search))
 
 
     async def start(self, update: Update, context: CallbackContext):
@@ -67,9 +67,9 @@ class SaverBot(TelegramBot):
     async def _send_no_document_passed_message(update: Update):
         await update.message.reply_text('Message does not contain any file. Please, try resend file one more time.')
 
-    async def upload_file(self, update: Update, context: CallbackContext) -> None:
+    async def upload_file_or_search(self, update: Update, context: CallbackContext) -> None:
         if update.message.document is None:
-            await self._send_no_document_passed_message(update)
+            await self.search(update, context)
             return
         
         if 'access_token' in context.chat_data:
@@ -91,6 +91,28 @@ class SaverBot(TelegramBot):
         else:
             await update.message.reply_text(f'It seems like you have to connect to {self.provider.name}.')
             await self.send_register_link(update, context)
+
+    async def search(self, update: Update, context: CallbackContext) -> None:
+        query = update.message.text.replace('/find', '').strip()
+
+        access_token = context.chat_data['access_token']
+        refresh_token = context.chat_data['refresh_token']
+        folder_id = context.chat_data['box_folder_id']  
+        search_result = self.provider.search(access_token, refresh_token, folder_id, query)
+        if search_result is None:
+            await update.message.reply_markdown('You don\'t have any book with "{query}" in name, description, comments, or tags.')
+
+        await update.message.reply_chat_action(action=constants.ChatAction.TYPING)
+        search_message = []
+        for item in search_result:
+            search_message.append(f'- {self.provider.get_file_link(item.id, item.name)}')
+            if len(search_message) == 5:
+                await update.message.reply_chat_action(action=constants.ChatAction.TYPING)
+                await update.message.reply_markdown('\n'.join(search_message))
+                search_message = []
+
+        if len(search_message) > 0:
+            await update.message.reply_markdown('\n'.join(search_message))
 
     async def _upload_file(self, update, context):
         access_token = context.chat_data['access_token']
